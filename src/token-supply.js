@@ -98,4 +98,4 @@ const getCurrentTokenSupply = (timeStamp) => {
     return totalSupply.toFixed(4)
 }
 
-module.exports = getCurrentTokenSupply
+export default getCurrentTokenSupply
