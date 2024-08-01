@@ -1,0 +1,26 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.app }}-ingress-public
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingress.className }}
+    networking.gke.io/v1: "managed-certificates"
+    networking.gke.io/managed-certificates: {{ .Values.sslcert.name }}
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.app }}-{{ .Values.env }}-ip
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+
+spec:
+  selector:
+    app: {{ .Values.app }}
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+  {{- $root := . }}
+  defaultBackend:
+    service:
+      name: {{ $root.Values.service.name }}
+      port:
+        number: {{ $root.Values.service.port }}
+{{- end }}

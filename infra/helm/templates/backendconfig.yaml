@@ -1,0 +1,16 @@
+{{- range $backend := .Values.serviceBackends }}
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ $backend.name }}
+spec:
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: {{ $backend.requestPath }}
+    port: {{ $backend.port }}
+{{- end }}

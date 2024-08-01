@@ -1,0 +1,49 @@
+steps:
+  # Step 1: Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "-t",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${SHORT_SHA}",
+        "-t",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:latest",
+        ".",
+      ]
+
+  # Step 2: Push the Docker image to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${SHORT_SHA}",
+      ]
+
+  # Step 3: Set up Helm and deploy
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -ex
+        gcloud container clusters get-credentials ${_KUBE_CLUSTER} --zone ${_REGION} --project ${PROJECT_ID}
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        helm dependency update ${_HELM_CHART}
+        helm upgrade --install ${_KUBE_DEPLOYMENT} ${_HELM_CHART} \
+          --namespace ${_KUBE_NAMESPACE} \
+          --values ${_HELM_VALUES} \
+          --set image.tag=${SHORT_SHA}
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE}:${SHORT_SHA}"
+
+substitutions:
+  _REGION: "asia-south1"
+  _REPOSITORY: "router-apps-asia-south"
+  _IMAGE: "circulating-supply"
+  _KUBE_CLUSTER: "mainnet-tools"
+  _KUBE_DEPLOYMENT: "circulating-supply"
+  _KUBE_NAMESPACE: "circulating-supply"
+  _HELM_CHART: "./infra/helm"
+  _HELM_VALUES: "./infra/helm/values.yaml"

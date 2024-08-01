@@ -1,0 +1,54 @@
+replicaCount: 1
+
+app: circulating-supply
+env: mainnet
+
+image:
+  repository: asia-south1-docker.pkg.dev/router-mainnet-api/router-apps-asia-south/circulating-supply
+  tag: v3
+  pullPolicy: IfNotPresent
+
+container:
+  secretName: circulating-supply-env
+
+service:
+  type: NodePort
+  name: circulating-supply-service
+  port: 5001
+  targetPort: 5001
+
+sslcert:
+  enabled: true
+  name: "circulating-supply-tls"
+  host: "api.routerprotocol.com"
+
+autoscaling:
+  enabled: true
+  targetCPUUtilizationPercentage: 80
+  minReplicas: 1
+  maxReplicas: 2
+
+ingress:
+  enabled: true
+  className: "gce"
+
+backendConfig:
+  healthCheck:
+    requestPath: /
+    checkIntervalSec: 30
+    timeoutSec: 10
+    healthyThreshold: 1
+    unhealthyThreshold: 2
+
+serviceBackends:
+  - name: circulating-supplyconfig
+    requestPath: /
+    port: 5001
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "400Mi"
+    cpu: "250m"
