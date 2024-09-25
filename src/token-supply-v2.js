@@ -241,7 +241,9 @@ const getCurrentTokenSupplyV2 = async (timeStamp) => {
     newChainTotalSupply -= 1000000000;
 
     totalSupply += newChainTotalSupply;
-    return totalSupply.toFixed(4);
+    return {
+      supply: totalSupply.toFixed(4),
+    };
   } catch (error) {
     console.error("Error in getCurrentTokenSupply: ", error);
     return 0; // Return 0 in case of error
