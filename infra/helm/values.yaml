@@ -5,11 +5,8 @@ env: mainnet
 
 image:
   repository: asia-south1-docker.pkg.dev/router-mainnet-api/router-apps-asia-south/circulating-supply
-  tag: v3
+  tag: eb1c823
   pullPolicy: IfNotPresent
-
-container:
-  secretName: circulating-supply-env
 
 service:
   type: NodePort

@@ -37,14 +37,3 @@ spec:
           limits:
             memory: {{ .Values.resources.limits.memory }}
             cpu: {{ .Values.resources.limits.cpu }}
-        volumeMounts:
-        - name: env-secret
-          mountPath: /usr/src/nitro-api/.env
-          subPath: .env
-        envFrom:
-        - secretRef:
-            name: {{ .Values.container.secretName }}
-      volumes:
-      - name: env-secret
-        secret:
-          secretName: {{ .Values.container.secretName }}
