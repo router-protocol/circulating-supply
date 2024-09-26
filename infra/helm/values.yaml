@@ -8,9 +8,6 @@ image:
   tag: v3
   pullPolicy: IfNotPresent
 
-container:
-  secretName: circulating-supply-env
-
 service:
   type: NodePort
   name: circulating-supply-service
