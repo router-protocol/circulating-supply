@@ -56,8 +56,8 @@ app.get('/circulating-supply-v2/', async (req, res) => {
 app.get('/supply-v2/', async (req, res) => {
     try {
         const tokenSupply = await getCurrentTokenSupplyV2(req.query.timestamp);
-        // const totalSupply = await totalTokenSupplyV2();
-        const totalSupply = 1000000000
+        const totalSupply = await totalTokenSupplyV2();
+        // const totalSupply = 1000000000
         const response = {
             "circluatingSupply": tokenSupply,
             "totalSupply": totalSupply
