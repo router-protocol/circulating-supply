@@ -99,11 +99,11 @@ const abi = [
 
 // RPC endpoints for Ethereum with fallback options
 const ethereumRPCs = [
-  "https://rpc.ankr.com/eth",
   "https://eth.llamarpc.com",
   "https://ethereum.publicnode.com",
   "https://eth-mainnet.public.blastapi.io",
-  "https://ethereum.blockpi.network/v1/rpc/public"
+  "https://ethereum.blockpi.network/v1/rpc/public",
+  "https://mainnet.gateway.tenderly.co"
 ];
 
 // Contract addresses for Ethereum
