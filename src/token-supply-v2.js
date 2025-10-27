@@ -75,8 +75,8 @@ const metrics = [
     totalTokens: 10000000,
     preMint: 0,
     bonus: 0,
-    vestingStart: getTime(TGE, 1627),
-    vestingEnds: getTime(getTime(TGE, 1627), 1856),
+    vestingStart: getTime(TGE, 1810), // 1627 days earlier, but pushed by 6 months
+    vestingEnds: getTime(getTime(TGE, 1810), 1856), // 1856 days after start
   },
 ];
 
@@ -97,27 +97,72 @@ const abi = [
   },
 ];
 
-// RPC endpoints for Ethereum and Polygon
-const ethereumRPC = "https://eth.llamarpc.com";
-const polygonRPC = "https://polygon.llamarpc.com";
+// RPC endpoints for Ethereum with fallback options
+const ethereumRPCs = [
+  "https://rpc.ankr.com/eth",
+  "https://eth.llamarpc.com",
+  "https://ethereum.publicnode.com",
+  "https://eth-mainnet.public.blastapi.io",
+  "https://ethereum.blockpi.network/v1/rpc/public"
+];
 
-// Contract addresses for Ethereum and Polygon
+// Contract addresses for Ethereum
 const ethereumContractAddress = "0x60f67e1015b3f069dd4358a78c38f83fe3a667a9";
-const polygonContractAddress = "0x93890f346c5d02c3863a06657bc72555dc72c527";
 
-// Create web3 instances for Ethereum and Polygon
-const ethereumWeb3 = new Web3(ethereumRPC);
-const polygonWeb3 = new Web3(polygonRPC);
+// Function to create Web3 instance with RPC fallback
+const createWeb3WithFallback = async (rpcList) => {
+  for (let i = 0; i < rpcList.length; i++) {
+    try {
+      const web3 = new Web3(rpcList[i]);
+      // Test the connection by getting the latest block number
+      await web3.eth.getBlockNumber();
+      console.log(`Successfully connected to RPC: ${rpcList[i]}`);
+      return web3;
+    } catch (error) {
+      console.warn(`Failed to connect to RPC ${rpcList[i]}:`, error.message);
+      if (i === rpcList.length - 1) {
+        throw new Error(`All RPC endpoints failed. Last error: ${error.message}`);
+      }
+    }
+  }
+};
 
-// Create contract instances
-const ethereumContract = new ethereumWeb3.eth.Contract(
-  abi,
-  ethereumContractAddress
-);
-const polygonContract = new polygonWeb3.eth.Contract(
-  abi,
-  polygonContractAddress
-);
+// Create web3 instance with fallback
+let ethereumWeb3;
+let ethereumContract;
+
+// Initialize Web3 and contract with fallback
+const initializeWeb3 = async () => {
+  try {
+    ethereumWeb3 = await createWeb3WithFallback(ethereumRPCs);
+    ethereumContract = new ethereumWeb3.eth.Contract(abi, ethereumContractAddress);
+    console.log("Web3 and contract initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize Web3:", error);
+    throw error;
+  }
+};
+
+// Function to retry with different RPC if current one fails
+const retryWithFallback = async (operation, maxRetries = 2) => {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.warn(`Operation failed on attempt ${attempt + 1}:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        console.log("Retrying with different RPC endpoint...");
+        // Reinitialize Web3 with a different RPC
+        ethereumWeb3 = null;
+        ethereumContract = null;
+        await initializeWeb3();
+      } else {
+        throw error;
+      }
+    }
+  }
+};
 
 // Fetch the total supply from a contract
 const fetchTotalSupply = async (contract, web3Instance) => {
@@ -147,14 +192,19 @@ const fetchTotalSupply = async (contract, web3Instance) => {
 
 // Fetch total supplies from both chains
 export const fetchTotalSupplies = async () => {
-  const [ethereumTotalSupply, polygonTotalSupply] = await Promise.all([
-    fetchTotalSupply(ethereumContract, ethereumWeb3),
-    fetchTotalSupply(polygonContract, polygonWeb3),
-  ]);
-  return {
-    ethereum: ethereumTotalSupply,
-    polygon: polygonTotalSupply,
-  };
+  return await retryWithFallback(async () => {
+    // Ensure Web3 is initialized
+    if (!ethereumWeb3 || !ethereumContract) {
+      await initializeWeb3();
+    }
+    
+    const [ethereumTotalSupply] = await Promise.all([
+      fetchTotalSupply(ethereumContract, ethereumWeb3),
+    ]);
+    return {
+      ethereum: ethereumTotalSupply,
+    };
+  });
 };
 
 const liquidityProvisions = (timeStamp) => {
@@ -182,35 +232,15 @@ const currentTokens = (allocation, timestamp) => {
   return data;
 };
 
-const fetchRouteTokenAmount = async () => {
-  try {
-    const response = await fetch(
-      "https://sentry.lcd.routerprotocol.com/cosmos/bank/v1beta1/supply"
-    );
-    const data = await response.json();
-    const routeToken = data.supply.find((token) => token.denom === "route");
-    const routeAmount = routeToken
-      ? parseFloat(routeToken.amount) / 10 ** 18
-      : 0;
-    return routeAmount;
-  } catch (error) {
-    console.error("Error fetching route token amount: ", error);
-    return 0; // Return 0 in case of error
-  }
-};
-
 export const totalTokenSupplyV2 = async () => {
   try {
-    const routeAmount = await fetchRouteTokenAmount();
     const totalChainSupply = await fetchTotalSupplies();
 
     // let totalSupplyV2 = 20000000;
     // totalSupplyV2 = parseFloat(totalSupplyV2 * 33.33);
 
     let newChainTotalSupply = 0;
-    newChainTotalSupply += routeAmount;
     newChainTotalSupply += parseFloat(totalChainSupply.ethereum);
-    newChainTotalSupply += parseFloat(totalChainSupply.polygon);
 
     // totalSupplyV2 += newChainTotalSupply;
     return newChainTotalSupply.toFixed(4);
@@ -219,12 +249,10 @@ export const totalTokenSupplyV2 = async () => {
     return 0; // Return 0 in case of error
   }
 };
+
 // Adds all the tokens to give circulating supply
 const getCurrentTokenSupplyV2 = async (timeStamp) => {
   try {
-    const routeAmount = await fetchRouteTokenAmount();
-    const totalChainSupply = await fetchTotalSupplies();
-
     timeStamp = timeStamp ? new Date(timeStamp) : new Date();
     let totalSupply = 0;
     for (let i of metrics) {
@@ -233,14 +261,6 @@ const getCurrentTokenSupplyV2 = async (timeStamp) => {
 
     totalSupply += liquidityProvisions(timeStamp);
     totalSupply = parseFloat(totalSupply * 33.33); // Multiplying by 33.33
-
-    let newChainTotalSupply = 0;
-    newChainTotalSupply += routeAmount;
-    newChainTotalSupply += parseFloat(totalChainSupply.ethereum);
-    newChainTotalSupply += parseFloat(totalChainSupply.polygon);
-    newChainTotalSupply -= 1000000000;
-
-    totalSupply += newChainTotalSupply;
     return totalSupply.toFixed(4);
   } catch (error) {
     console.error("Error in getCurrentTokenSupply: ", error);
@@ -248,4 +268,5 @@ const getCurrentTokenSupplyV2 = async (timeStamp) => {
   }
 };
 
+export { getCurrentTokenSupplyV2 };
 export default getCurrentTokenSupplyV2;
