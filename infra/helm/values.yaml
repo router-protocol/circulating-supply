@@ -5,7 +5,7 @@ env: mainnet
 
 image:
   repository: asia-south1-docker.pkg.dev/router-mainnet-api/router-apps-asia-south/circulating-supply
-  tag: eb1c823
+  tag: 0ca4c70
   pullPolicy: IfNotPresent
 
 service:
